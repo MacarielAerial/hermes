@@ -77,7 +77,7 @@ RUN poetry --version
 RUN mkdir -p /app
 
 # Only copy necessary files when implemented
-COPY . /app
+COPY pyproject.toml poetry.lock /app/
 
 # Set working directory
 WORKDIR /app
@@ -104,5 +104,8 @@ WORKDIR /app
 # Set executables in PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
+# Bake the health check into the image
+HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s CMD curl --fail http://localhost:80/health || exit 1
+
 # TODO: Add a command to start the service
-# ENTRYPOINT
+ENTRYPOINT ["fastapi", "run", "app/main.py", "--port", "80"]

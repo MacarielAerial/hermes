@@ -1,7 +1,7 @@
-# Gaia
+# hermes
 
 # Summary
-Gaia is a template repository for python applications
+hermes is a template repository for python applications
 
 # Current Feature Set
 

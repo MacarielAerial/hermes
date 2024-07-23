@@ -1,10 +1,16 @@
-name: gaia-dev
+name: hermes-dev
 
 services:
-  gaia:
+  hermes:
+    build:
+      context: .
+      target: dev
+      dockerfile: Dockerfile
+    image: hermes-dev
+    container_name: hermes-dev
     # Prevent the container from exiting after initialisation
     command: /bin/sh -c "while sleep 1000; do :; done"
 
     volumes:
       # Replace placeholder service name
-      - .:/workspaces/gaia:cached
+      - .:/workspaces/hermes:cached
