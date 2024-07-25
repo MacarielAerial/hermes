@@ -7,3 +7,12 @@ class RegisterRequest(BaseModel):
 
 class RegisterResponse(BaseModel):
     message: str
+
+class UsersResponse(BaseModel):
+    message: str
+
+class UserResponse(BaseModel):
+    message: str
+
+class UserItemsResponse(BaseModel):
+    message: str
