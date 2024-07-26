@@ -1,16 +1,12 @@
 from fastapi import APIRouter, status, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from hermes.nodes.schema import RegisterRequest, RegisterResponse, UserItemsResponse, UsersResponse, UserResponse
-from hermes.nodes.crud import create_user, get_user_by_email, get_users, get_user, create_user_item
-from hermes.connectors.sql_connector import models
+from hermes.nodes.schema import ItemsResponse, RegisterResponse, UserItemResponse, UsersResponse, UserResponse
+from hermes.nodes.crud import create_user, get_user_by_email, get_users, get_user, create_user_item, get_items
 from hermes.connectors.sql_connector import schemas
-from hermes.connectors.sql_connector.database import engine, SessionLocal
+from hermes.connectors.sql_connector.database import SessionLocal
 
 
-# TODO: Use alembic to sync declarative code change with underlying sql tables
-models.Base.metadata.drop_all(engine)
-models.Base.metadata.create_all(bind=engine)
 def get_db():
     session = SessionLocal()
     try:
@@ -20,19 +16,19 @@ def get_db():
 router = APIRouter()
 
 @router.post("/register/", status_code=status.HTTP_201_CREATED)
-def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)) -> RegisterResponse:
-    db_user = get_user_by_email(db, email=user.email)
+def register_user(user_create: schemas.UserCreate, db: Session = Depends(get_db)) -> RegisterResponse:
+    db_user = get_user_by_email(db, email=user_create.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    user = create_user(db=db, user=user)
+    db_user = create_user(db=db, user_create=user_create)
 
-    return RegisterResponse(message=f'User {user.id} has been created')
+    return RegisterResponse(message='User has been created', db_user=db_user)
 
 @router.get("/users/", status_code=status.HTTP_200_OK)
 def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)) -> UsersResponse:
-    users = get_users(db, skip=skip, limit=limit)
+    db_users = get_users(db, skip=skip, limit=limit)
 
-    return UsersResponse(message=f'Returned list of users:\n{users}')
+    return UsersResponse(message=f'Found {len(db_users)} user/users', db_users=db_users)
 
 @router.get("/users/{user_id}", status_code=status.HTTP_200_OK)
 def read_user(user_id: int, db: Session = Depends(get_db)) -> UserResponse:
@@ -40,15 +36,21 @@ def read_user(user_id: int, db: Session = Depends(get_db)) -> UserResponse:
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return UserResponse(message=f'Found user {db_user}')
+    return UserResponse(message='Found user', db_user=db_user)
 
-@router.post("/users/{user_id}/items/", status_code=status.HTTP_200_OK)
+@router.post("/users/{user_id}/items/", status_code=status.HTTP_201_CREATED)
 def create_item_for_user(
-    user_id: int, item: schemas.ItemCreate, db: Session = Depends(get_db)
-) -> UserItemsResponse:
+    user_id: int, item_create: schemas.ItemCreate, db: Session = Depends(get_db)
+) -> UserItemResponse:
     db_user = get_user(db=db, user_id=user_id)
     if not db_user:
         raise HTTPException(status_code=404, detail=f"User with ID {user_id} does not exist.")
-    item = create_user_item(db=db, item=item, user_id=user_id)
+    db_item = create_user_item(db=db, item_create=item_create, user_id=user_id)
+    
+    return UserItemResponse(message='Created an item for a user', db_item=db_item)
 
-    return UserItemsResponse(message=f'Item {item.id} has been created')
+@router.get("/items/", status_code=status.HTTP_200_OK)
+def read_items(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)) -> ItemsResponse:
+    db_items = get_items(db, skip=skip, limit=limit)
+
+    return ItemsResponse(message=f'Found {len(db_items)} items', db_items=db_items)
