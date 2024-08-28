@@ -1,56 +1,56 @@
-from fastapi import APIRouter, status, Depends, HTTPException
-from sqlalchemy.orm import Session
+import logging
+from typing import Iterable
+from uuid import UUID
 
-from hermes.nodes.schema import ItemsResponse, RegisterResponse, UserItemResponse, UsersResponse, UserResponse
-from hermes.nodes.crud import create_user, get_user_by_email, get_users, get_user, create_user_item, get_items
-from hermes.connectors.sql_connector import schemas
-from hermes.connectors.sql_connector.database import SessionLocal
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import Session
 
+from hermes.connectors.sql_connector.database import engine
+from hermes.connectors.sql_connector.schema import UserCreate
+from hermes.nodes.crud import _create_user, _get_user, _get_user_by_email, _get_users
+from hermes.nodes.schema import CreateUserResponse, GetUserResponse, GetUsersResponse
 
-def get_db():
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post("/register/", status_code=status.HTTP_201_CREATED)
-def register_user(user_create: schemas.UserCreate, db: Session = Depends(get_db)) -> RegisterResponse:
-    db_user = get_user_by_email(db, email=user_create.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    db_user = create_user(db=db, user_create=user_create)
 
-    return RegisterResponse(message='User has been created', db_user=db_user)
+def get_session() -> Iterable[Session]:
+    with Session(engine) as session:
+        yield session
 
-@router.get("/users/", status_code=status.HTTP_200_OK)
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)) -> UsersResponse:
-    db_users = get_users(db, skip=skip, limit=limit)
 
-    return UsersResponse(message=f'Found {len(db_users)} user/users', db_users=db_users)
+@router.post("/create-user", status_code=status.HTTP_201_CREATED)
+def create_user(
+    user_create: UserCreate, session: Session = Depends(get_session)
+) -> CreateUserResponse:
+    user = _get_user_by_email(session, user_create.email)
+    if user is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"User with the following data already exists: {user.model_dump()}",
+        )
 
-@router.get("/users/{user_id}", status_code=status.HTTP_200_OK)
-def read_user(user_id: int, db: Session = Depends(get_db)) -> UserResponse:
-    db_user = get_user(db, user_id=user_id)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = _create_user(session, user_create=user_create)
 
-    return UserResponse(message='Found user', db_user=db_user)
+    return CreateUserResponse(
+        message=f"The following user is created:\n{user.model_dump()}"
+    )
 
-@router.post("/users/{user_id}/items/", status_code=status.HTTP_201_CREATED)
-def create_item_for_user(
-    user_id: int, item_create: schemas.ItemCreate, db: Session = Depends(get_db)
-) -> UserItemResponse:
-    db_user = get_user(db=db, user_id=user_id)
-    if not db_user:
-        raise HTTPException(status_code=404, detail=f"User with ID {user_id} does not exist.")
-    db_item = create_user_item(db=db, item_create=item_create, user_id=user_id)
-    
-    return UserItemResponse(message='Created an item for a user', db_item=db_item)
 
-@router.get("/items/", status_code=status.HTTP_200_OK)
-def read_items(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)) -> ItemsResponse:
-    db_items = get_items(db, skip=skip, limit=limit)
+@router.get("/get-user/{user_id}", status_code=status.HTTP_200_OK)
+def get_user(user_id: UUID, session: Session = Depends(get_session)) -> GetUserResponse:
+    user = _get_user(session, user_id=user_id)
 
-    return ItemsResponse(message=f'Found {len(db_items)} items', db_items=db_items)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    return GetUserResponse(message=f"Got the following user:\n{user.model_dump()}")
+
+
+@router.get("/get-users", status_code=status.HTTP_200_OK)
+def get_users(session: Session = Depends(get_session)) -> GetUsersResponse:
+    users = _get_users(session)
+
+    return GetUsersResponse(
+        message=f"Here are all users in the database:\n{[user.model_dump() for user in users]}"
+    )

@@ -1,48 +1,108 @@
+from typing import List, Optional
+from uuid import UUID
 
 from pydantic import EmailStr
-import bcrypt
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select
 
-from hermes.connectors.sql_connector import schemas, models
+from hermes.connectors.sql_connector.schema import (
+    Item,
+    ItemCreate,
+    Order,
+    OrderCreate,
+    User,
+    UserCreate,
+)
 
 
-def get_hashed_password(password: str) -> str:
-    # Generate a salt and hash the password
-    salt = bcrypt.gensalt()
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
+def _create_user(session: Session, user_create: UserCreate) -> User:
+    user = User(**user_create.model_dump())
+    session.add(user)
+    session.commit()
+    session.refresh(user)
 
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    return user
 
-def get_user(db: Session, user_id: int):
-    return db.query(models.User).filter(models.User.id == user_id).first()
 
-def get_users(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.User).offset(skip).limit(limit).all()
+def _get_user(session: Session, user_id: UUID) -> Optional[User]:
+    user = session.get(User, user_id)
 
-def get_user_by_email(db: Session, email: EmailStr):
-    return db.query(models.User).filter(models.User.email == email).first()
+    return user
 
-def create_user(db: Session, user_create: schemas.UserCreate):
-    hashed_password = get_hashed_password(user_create.password)
-    db_user = models.User(email=user_create.email, hashed_password=hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
 
-    return db_user
+def _get_users(session: Session) -> List[User]:
+    statement = select(User)
+    users = list(session.exec(statement).all())
 
-def get_orders(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Order).offset(skip).limit(limit).all()
+    return users
 
-def create_user_item(db: Session, item_create: schemas.ItemCreate, user_id: int):
-    db_item = models.Item(**item_create.model_dump(), user_id=user_id)
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
 
-    return db_item
+def _get_user_by_email(session: Session, email: EmailStr) -> Optional[User]:
+    statement = select(User).where(User.email == email)
+    user = session.exec(statement).one_or_none()
 
-def get_items(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Item).offset(skip).limit(limit).all()
+    return user
+
+
+def _delete_user(session: Session, user: User) -> User:
+    session.delete(user)
+    session.commit()
+
+    return user
+
+
+def _create_item(session: Session, item_create: ItemCreate) -> Item:
+    item = Item(**item_create.model_dump())
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+
+    return item
+
+
+def _get_item(session: Session, item_id: UUID) -> Optional[Item]:
+    item = session.get(Item, item_id)
+
+    return item
+
+
+def _get_items(session: Session) -> List[Item]:
+    statement = select(Item)
+    items = list(session.exec(statement).all())
+
+    return items
+
+
+def _delete_item(session: Session, item: Item) -> Item:
+    session.delete(item)
+    session.commit()
+
+    return item
+
+
+def _create_order(session: Session, order_create: OrderCreate) -> Order:
+    order = Order(**order_create.model_dump())
+    session.add(order)
+    session.commit()
+    session.refresh(order)
+
+    return order
+
+
+def _get_order(session: Session, order_id: UUID) -> Optional[Order]:
+    order = session.get(Order, order_id)
+
+    return order
+
+
+def _get_orders(session: Session) -> List[Order]:
+    statement = select(Order)
+    orders = list(session.exec(statement).all())
+
+    return orders
+
+
+def _delete_order(session: Session, order: Order) -> Order:
+    session.delete(order)
+    session.commit()
+
+    return order
