@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import ConfigDict, EmailStr, NonNegativeFloat, NonNegativeInt
@@ -45,8 +45,8 @@ class ItemBase(SQLModel):
     name: str = Field(index=True)
     quantity: NonNegativeInt
 
-    user_id: UUID = Field(foreign_key="user.id")
-    order_id: UUID = Field(foreign_key="order.id")
+    user_id: Optional[UUID] = Field(foreign_key="user.id", default=None)
+    order_id: Optional[UUID] = Field(foreign_key="order.id", default=None)
 
 
 class Item(ItemBase, table=True):

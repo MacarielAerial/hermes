@@ -15,3 +15,11 @@ class GetUserResponse(BaseModel):
 
 class GetUsersResponse(BaseModel):
     message: str
+
+
+class DeleteUserResponse(BaseModel):
+    message: str
+
+
+class CreateItemResponse(BaseModel):
+    message: str
