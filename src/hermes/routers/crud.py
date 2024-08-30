@@ -10,7 +10,9 @@ from hermes.connectors.sql_connector.schema import ItemCreate, UserCreate
 from hermes.nodes.crud import (
     _create_item,
     _create_user,
+    _delete_item,
     _delete_user,
+    _get_item,
     _get_user,
     _get_user_by_email,
     _get_users,
@@ -18,7 +20,9 @@ from hermes.nodes.crud import (
 from hermes.nodes.schema import (
     CreateItemResponse,
     CreateUserResponse,
+    DeleteItemResponse,
     DeleteUserResponse,
+    GetItemResponse,
     GetUserResponse,
     GetUsersResponse,
 )
@@ -55,7 +59,7 @@ def get_user(user_id: UUID, session: Session = Depends(get_session)) -> GetUserR
     user = _get_user(session, user_id=user_id)
 
     if user is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
+        raise HTTPException(status_code=404, detail="User not found")
 
     return GetUserResponse(message=f"Got the following user:\n{user.model_dump()}")
 
@@ -69,15 +73,15 @@ def get_users(session: Session = Depends(get_session)) -> GetUsersResponse:
     )
 
 
-@router.get("/delete-user/{user_id}", status_code=status.HTTP_200_OK)
-def delete(
+@router.post("/delete-user/{user_id}", status_code=status.HTTP_200_OK)
+def delete_user(
     user_id: UUID, session: Session = Depends(get_session)
 ) -> DeleteUserResponse:
     # Identify the user first
     user = _get_user(session, user_id)
 
     if user is None:
-        raise HTTPException(status_code=404, detail="Lead not found")
+        raise HTTPException(status_code=404, detail="User not found")
 
     # User still exists in memory but is gone in the database
     user = _delete_user(session, user)
@@ -107,4 +111,32 @@ def create_item(
 
     return CreateItemResponse(
         message=f"The following item is created:\n{item.model_dump()} for the following user:\n{item.user.model_dump()}"
+    )
+
+
+@router.get("/get-item/{item_id}", status_code=status.HTTP_200_OK)
+def get_item(item_id: UUID, session: Session = Depends(get_session)) -> GetItemResponse:
+    # Check the item exists
+    item = _get_item(session, item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return GetItemResponse(message=f"Got the following item:\n{item.model_dump()}")
+
+
+@router.post("/delete-item/{item_id}", status_code=status.HTTP_200_OK)
+def delete_item(
+    item_id: UUID, session: Session = Depends(get_session)
+) -> DeleteItemResponse:
+    # Identify the item first
+    item = _get_item(session, item_id)
+
+    if item is None:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Item still exists in memory but is gone in the database
+    item = _delete_item(session, item)
+
+    return DeleteItemResponse(
+        message=f"Deleted the following item:\n{item.model_dump()}"
     )

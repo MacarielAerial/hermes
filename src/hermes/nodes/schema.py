@@ -23,3 +23,11 @@ class DeleteUserResponse(BaseModel):
 
 class CreateItemResponse(BaseModel):
     message: str
+
+
+class GetItemResponse(BaseModel):
+    message: str
+
+
+class DeleteItemResponse(BaseModel):
+    message: str
