@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import EmailStr
 from sqlmodel import Session, select
 
-from hermes.connectors.sql_connector.schema import (
+from hermes.connectors.schema import (
     Item,
     ItemCreate,
     Order,

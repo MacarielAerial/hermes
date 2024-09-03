@@ -31,3 +31,15 @@ class GetItemResponse(BaseModel):
 
 class DeleteItemResponse(BaseModel):
     message: str
+
+
+class CreateOrderResponse(BaseModel):
+    message: str
+
+
+class GetOrderResponse(BaseModel):
+    message: str
+
+
+class DeleteOrderResponse(BaseModel):
+    message: str

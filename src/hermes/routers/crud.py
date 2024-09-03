@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 from hermes.connectors.sql_connector.database import engine
-from hermes.connectors.sql_connector.schema import ItemCreate, UserCreate
+from hermes.connectors.schema import ItemCreate, OrderCreate, UserCreate
 from hermes.nodes.crud import (
     _create_item,
     _create_user,
@@ -16,9 +16,11 @@ from hermes.nodes.crud import (
     _get_user,
     _get_user_by_email,
     _get_users,
+    _create_order
 )
 from hermes.nodes.schema import (
     CreateItemResponse,
+    CreateOrderResponse,
     CreateUserResponse,
     DeleteItemResponse,
     DeleteUserResponse,
@@ -139,4 +141,26 @@ def delete_item(
 
     return DeleteItemResponse(
         message=f"Deleted the following item:\n{item.model_dump()}"
+    )
+
+@router.post("/create-order/{user_id}", status_code=status.HTTP_201_CREATED)
+def create_order(
+    user_id: UUID, order_create: OrderCreate, session: Session = Depends(get_session)
+) -> CreateOrderResponse:
+    # Check the user exists
+    user = _get_user(session, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found with the following ID: {user_id}",
+        )
+
+    # Attach the user to the order
+    order_create.user_id = user.id
+
+    # Create the order
+    order = _create_order(session, order_create)
+
+    return CreateOrderResponse(
+        message=f"The following order is created:\n{order.model_dump()} for the following user:\n{order.user.model_dump()}"
     )
