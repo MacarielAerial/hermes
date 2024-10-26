@@ -1,32 +1,33 @@
 import logging
-from typing import Iterable
+from typing import Iterable, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from hermes.connectors.sql_connector.database import engine
-from hermes.connectors.schema import ItemCreate, OrderCreate, UserCreate
+from hermes.connectors.database import engine
+from hermes.connectors.schema import ItemCreate, BuyOrderCreate, ItemPublic, SellOrderCreate, UserCreate, UserPublic
 from hermes.nodes.crud import (
+    _get_item_type,
     _create_item,
-    _create_user,
-    _delete_item,
-    _delete_user,
     _get_item,
+    _delete_item,
+    _create_user,
     _get_user,
     _get_user_by_email,
     _get_users,
-    _create_order
+    _delete_user,
+    _create_buy_order,
+    _get_buy_order,
+    _delete_buy_order,
+    _create_sell_order,
+    _get_sell_order,
+    _delete_sell_order
 )
 from hermes.nodes.schema import (
-    CreateItemResponse,
     CreateOrderResponse,
-    CreateUserResponse,
-    DeleteItemResponse,
-    DeleteUserResponse,
-    GetItemResponse,
-    GetUserResponse,
-    GetUsersResponse,
+    DeleteOrderResponse,
+    GetOrderResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def get_session() -> Iterable[Session]:
 @router.post("/create-user", status_code=status.HTTP_201_CREATED)
 def create_user(
     user_create: UserCreate, session: Session = Depends(get_session)
-) -> CreateUserResponse:
+) -> UserPublic:
     user = _get_user_by_email(session, user_create.email)
     if user is not None:
         raise HTTPException(
@@ -51,34 +52,30 @@ def create_user(
 
     user = _create_user(session, user_create=user_create)
 
-    return CreateUserResponse(
-        message=f"The following user is created:\n{user.model_dump()}"
-    )
+    return UserPublic.model_validate(user)
 
 
 @router.get("/get-user/{user_id}", status_code=status.HTTP_200_OK)
-def get_user(user_id: UUID, session: Session = Depends(get_session)) -> GetUserResponse:
+def get_user(user_id: UUID, session: Session = Depends(get_session)) -> UserPublic:
     user = _get_user(session, user_id=user_id)
 
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return GetUserResponse(message=f"Got the following user:\n{user.model_dump()}")
+    return UserPublic.model_validate(user)
 
 
 @router.get("/get-users", status_code=status.HTTP_200_OK)
-def get_users(session: Session = Depends(get_session)) -> GetUsersResponse:
+def get_users(session: Session = Depends(get_session)) -> List[UserPublic]:
     users = _get_users(session)
 
-    return GetUsersResponse(
-        message=f"Here are all users in the database:\n{[user.model_dump() for user in users]}"
-    )
+    return [UserPublic.model_validate(user) for user in users]
 
 
 @router.post("/delete-user/{user_id}", status_code=status.HTTP_200_OK)
 def delete_user(
     user_id: UUID, session: Session = Depends(get_session)
-) -> DeleteUserResponse:
+) -> UserPublic:
     # Identify the user first
     user = _get_user(session, user_id)
 
@@ -88,15 +85,13 @@ def delete_user(
     # User still exists in memory but is gone in the database
     user = _delete_user(session, user)
 
-    return DeleteUserResponse(
-        message=f"Deleted the following user:\n{user.model_dump()}"
-    )
+    return UserPublic.model_validate(user)
 
 
-@router.post("/create-item/{user_id}", status_code=status.HTTP_201_CREATED)
+@router.post("/create-item/{user_id}/{item_type_id}/{quantity}", status_code=status.HTTP_201_CREATED)
 def create_item(
-    user_id: UUID, item_create: ItemCreate, session: Session = Depends(get_session)
-) -> CreateItemResponse:
+    user_id: UUID, item_type_id: UUID, quantity: int, session: Session = Depends(get_session)
+) -> ItemPublic:
     # Check the user exists
     user = _get_user(session, user_id)
     if user is None:
@@ -105,31 +100,35 @@ def create_item(
             detail=f"User not found with the following ID: {user_id}",
         )
 
-    # Attach the user to the item
-    item_create.user_id = user.id
+    # Check the item type exists
+    item_type = _get_item_type(session=session, item_type_id=item_type_id)
+    if item_type is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Item type not found with the following ID: {item_type}"
+        )
 
     # Create the item
+    item_create = ItemCreate(name=item_type.name, quantity=quantity, user_id=user.id, item_type_id=item_type.id)
     item = _create_item(session, item_create)
 
-    return CreateItemResponse(
-        message=f"The following item is created:\n{item.model_dump()} for the following user:\n{item.user.model_dump()}"
-    )
+    return ItemPublic.model_validate(item)
 
 
 @router.get("/get-item/{item_id}", status_code=status.HTTP_200_OK)
-def get_item(item_id: UUID, session: Session = Depends(get_session)) -> GetItemResponse:
+def get_item(item_id: UUID, session: Session = Depends(get_session)) -> ItemPublic:
     # Check the item exists
     item = _get_item(session, item_id)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    return GetItemResponse(message=f"Got the following item:\n{item.model_dump()}")
+    return ItemPublic.model_validate(item)
 
 
 @router.post("/delete-item/{item_id}", status_code=status.HTTP_200_OK)
 def delete_item(
     item_id: UUID, session: Session = Depends(get_session)
-) -> DeleteItemResponse:
+) -> ItemPublic:
     # Identify the item first
     item = _get_item(session, item_id)
 
@@ -139,13 +138,11 @@ def delete_item(
     # Item still exists in memory but is gone in the database
     item = _delete_item(session, item)
 
-    return DeleteItemResponse(
-        message=f"Deleted the following item:\n{item.model_dump()}"
-    )
+    return ItemPublic.model_validate(item)
 
-@router.post("/create-order/{user_id}", status_code=status.HTTP_201_CREATED)
-def create_order(
-    user_id: UUID, order_create: OrderCreate, session: Session = Depends(get_session)
+@router.post("/create-buy-order/{user_id}", status_code=status.HTTP_201_CREATED)
+def create_buy_order(
+    user_id: UUID, buy_order_create: BuyOrderCreate, session: Session = Depends(get_session)
 ) -> CreateOrderResponse:
     # Check the user exists
     user = _get_user(session, user_id)
@@ -156,11 +153,92 @@ def create_order(
         )
 
     # Attach the user to the order
-    order_create.user_id = user.id
+    buy_order_create.user_id = user.id
 
     # Create the order
-    order = _create_order(session, order_create)
+    buy_order = _create_buy_order(session, buy_order_create)
 
     return CreateOrderResponse(
-        message=f"The following order is created:\n{order.model_dump()} for the following user:\n{order.user.model_dump()}"
+        message=f"The following order is created:\n{buy_order.model_dump()} for the following user:\n{buy_order.user.model_dump()}"
+    )
+
+@router.post("/create-sell-order/{user_id}", status_code=status.HTTP_201_CREATED)
+def create_sell_order(
+    user_id: UUID, sell_order_create: SellOrderCreate, session: Session = Depends(get_session)
+) -> CreateOrderResponse:
+    # Check the user exists
+    user = _get_user(session, user_id)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User not found with the following ID: {user_id}",
+        )
+
+    # Attach the user to the order
+    sell_order_create.user_id = user.id
+
+    # Create the order
+    sell_order = _create_sell_order(session, sell_order_create)
+
+    return CreateOrderResponse(
+        message=f"The following order is created:\n{sell_order.model_dump()} for the following user:\n{sell_order.user.model_dump()}"
+    )
+
+@router.get("/get-buy-order/{buy_order_id}", status_code=status.HTTP_200_OK)
+def get_buy_order(
+    buy_order_id: UUID, session: Session = Depends(get_session)
+) -> GetOrderResponse:
+    # Check the order exists
+    buy_order = _get_buy_order(session=session, buy_order_id=buy_order_id)
+
+    if buy_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    return GetOrderResponse(message=f"Got the following order:\n{buy_order.model_dump()}")
+
+@router.get("/get-sell-order/{sell_order_id}", status_code=status.HTTP_200_OK)
+def get_sell_order(
+    sell_order_id: UUID, session: Session = Depends(get_session)
+) -> GetOrderResponse:
+    # Check the order exists
+    sell_order = _get_sell_order(session=session, sell_order_id=sell_order_id)
+
+    if sell_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    return GetOrderResponse(message=f"Got the following order:\n{sell_order.model_dump()}")
+
+
+@router.post("/delete-buy-order/{buy_order_id}", status_code=status.HTTP_200_OK)
+def delete_buy_order(
+    buy_order_id: UUID, session: Session = Depends(get_session)
+) -> DeleteOrderResponse:
+    # Identify the order first
+    buy_order = _get_buy_order(session, buy_order_id)
+
+    if buy_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Order still exists in memory but is gone in the database
+    buy_order = _delete_buy_order(session, buy_order)
+
+    return DeleteOrderResponse(
+        message=f"Deleted the following order:\n{buy_order.model_dump()}"
+    )
+
+@router.post("/delete-sell-order/{sell_order_id}", status_code=status.HTTP_200_OK)
+def delete_sell_order(
+    sell_order_id: UUID, session: Session = Depends(get_session)
+) -> DeleteOrderResponse:
+    # Identify the order first
+    sell_order = _get_buy_order(session, sell_order_id)
+
+    if sell_order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Order still exists in memory but is gone in the database
+    sell_order = _delete_sell_order(session, sell_order)
+
+    return DeleteOrderResponse(
+        message=f"Deleted the following order:\n{sell_order.model_dump()}"
     )
