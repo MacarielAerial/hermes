@@ -83,4 +83,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s CMD curl --fail http://localhost:80/health || exit 1
 
 # TODO: Add a command to start the service
-ENTRYPOINT ["fastapi", "run", "src/hermes/main.py",", "--port", "80"]
+ENTRYPOINT ["fastapi", "run", "src/hermes/main.py", "--port", "80"]
