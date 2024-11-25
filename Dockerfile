@@ -66,7 +66,7 @@ RUN poetry install --without dev
 # Multi Stage: Runtime Image
 #
 
-FROM python:3.12-alpine AS runtime
+FROM python:3.12-slim AS runtime
 
 # Copy over baked environment
 # Explicitly copy the otherwise ignore .venv folder
