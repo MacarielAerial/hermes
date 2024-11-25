@@ -54,6 +54,7 @@ RUN mkdir -p /app
 
 # Only copy necessary files when implemented
 COPY pyproject.toml poetry.lock /app/
+COPY src /app/src
 
 # Set working directory
 WORKDIR /app
@@ -71,7 +72,6 @@ FROM python:3.12-alpine AS runtime
 # Explicitly copy the otherwise ignore .venv folder
 COPY --from=bake /app /app
 COPY --from=bake /app/.venv /app/.venv
-COPY --from=bake /app/src /app/src
 
 # Set 
 WORKDIR /app
