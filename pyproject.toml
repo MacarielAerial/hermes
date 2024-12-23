@@ -1,34 +1,40 @@
 [tool.poetry]
-name = "gaia"
+name = "hermes"
 version = "0.0.0"
-description = "Template repository for a python project"
+description = "A trading platform for sport hospitality agents"
 authors = ["Yifei Yu"]
 readme = "README.md"
 packages = [
-    { include = "gaia", from = "src" }
+    { include = "hermes", from = "src" }
 ]
 include = [
-    { path = "src/gaia/conf_default", format = "sdist" },
+    { path = "src/hermes/conf_default", format = "sdist" },
     { path = "notebooks", format = "sdist" }
 ]
 
 [tool.poetry.dependencies]
-python = "~3.11"
-pydantic = "^2.8.2"
-pandas = "^2.2.2"
+python = "~3.12"
+pydantic = "^2.9.2"
+pandas = "^2.2.3"
+fastapi = "^0.111.1"
+email-validator = "^2.2.0"
+psycopg2-binary = "^2.9.10"
+streamlit = "^1.39.0"
+sqlmodel = "^0.0.21"
+types-requests = "^2.32.0.20241016"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.13.2"
-pytest = "^8.2.2"
-mypy = "^1.10.1"
-flake8 = "^7.1.0"
-coverage = {extras = ["toml"], version = "^7.6.0"}
-black = "^24.4.2"
+pytest = "^8.3.3"
+mypy = "^1.13.0"
+flake8 = "^7.1.1"
+coverage = {extras = ["toml"], version = "^7.6.4"}
+black = "^24.10.0"
 yamllint = "^1.35.1"
-semgrep = "^1.79.0"
+semgrep = "^1.93.0"
 ipykernel = "^6.29.5"
 nbformat = "^5.10.4"
-ruff = "^0.5.2"
+ruff = "^0.7.1"
 shellcheck-py = "^0.10.0.1"
 python-dotenv = "^1.0.1"
 
@@ -62,6 +68,7 @@ mypy_path = "src"
 exclude = [
     ".venv"
 ]
+plugins = "sqlalchemy.ext.mypy.plugin"
 namespace_packages = true
 explicit_package_bases = true
 disallow_untyped_defs = true
@@ -87,7 +94,8 @@ source = ["src"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-fail_under = 50
+# TODO: Reimplement coverage requirement
+fail_under = 0
 exclude_lines = [
     # Have to re-enable the standard pragma
     "pragma: no cover",

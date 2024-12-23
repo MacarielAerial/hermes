@@ -15,18 +15,10 @@
 	// use. Update this value and .devcontainer/docker-compose.yml to the real service name.
     "service": "${localWorkspaceFolderBasename}",
 
-	"shutdownAction": "stopCompose",
-
-	// Mount ssh directory into the container instance
-	"mounts": [
-		"source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/vscode/.ssh,readonly,type=bind,consistency=cached"
-	],
-
 	// Additional dependencies to install into the primary container
 	"features":  {
 		"ghcr.io/devcontainers/features/git:1": {},
 		"ghcr.io/devcontainers/features/git-lfs:1": {},
- 	   	"ghcr.io/devcontainers/features/aws-cli:1": {},
 		"ghcr.io/devcontainers/features/sshd:1": {}
 	},
 
@@ -51,7 +43,7 @@
 	"customizations": {
 		"vscode": {
 			"settings": {
-				"python.defaultInterpreterPath": "/workspaces/${localWorkspaceFolderBasename}/.venv/bin/python3",
+				"python.defaultInterpreterPath": "/workspaces/${localWorkspaceFolderBasename}/.venv/bin/python",
 				"terminal.integrated.shell.linux": "/bin/bash",
 				"remote.ssh.enableAgentForwarding": true
 			},
